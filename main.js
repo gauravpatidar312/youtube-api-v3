@@ -80,42 +80,97 @@ function showChannelData(data) {
 
 // Get channel from API
 function getChannel(channel) {
-  gapi.client.youtube.channels
-    .list({
-      part: 'snippet,contentDetails,statistics',
-      forUsername: channel
-    })
-    .then(response => {
-      console.log(response);
-      const channel = response.result.items[0];
+  gapi.client.load("https://youtubeanalytics.googleapis.com/$discovery/rest?version=v2")
+  .then(function () {
+          console.log("GAPI client loaded for API");
+          getChannel();
+      },
+      function (err) {
+          console.error("Error loading GAPI client for API", err);
+      });
 
-      const output = `
-        <ul class="collection">
-          <li class="collection-item">Title: ${channel.snippet.title}</li>
-          <li class="collection-item">ID: ${channel.id}</li>
-          <li class="collection-item">Subscribers: ${numberWithCommas(
-            channel.statistics.subscriberCount
-          )}</li>
-          <li class="collection-item">Views: ${numberWithCommas(
-            channel.statistics.viewCount
-          )}</li>
-          <li class="collection-item">Videos: ${numberWithCommas(
-            channel.statistics.videoCount
-          )}</li>
-        </ul>
-        <p>${channel.snippet.description}</p>
-        <hr>
-        <a class="btn grey darken-2" target="_blank" href="https://youtube.com/${
-          channel.snippet.customUrl
-        }">Visit Channel</a>
-      `;
-      showChannelData(output);
-
-      const playlistId = channel.contentDetails.relatedPlaylists.uploads;
-      requestVideoPlaylist(playlistId);
-    })
-    .catch(err => alert('No Channel By That Name'));
 }
+async function getChannel() {
+  let countryMetrics, ageMetrics, genderMetrics, countryMetricsData;
+  let responseGender = await gapi.client.youtubeAnalytics.reports.query({
+      "ids": "channel==MINE",
+      "startDate": "2015-01-01",
+      "endDate": getDate(),
+      "dimensions": "gender",
+      "metrics": "viewerPercentage"
+  });
+  genderMetrics = JSON.parse(responseGender.body)
+
+  let responseAge = await gapi.client.youtubeAnalytics.reports.query({
+      "ids": "channel==MINE",
+      "startDate": "2015-01-01",
+      "endDate": getDate(),
+      "dimensions": "ageGroup",
+      "metrics": "viewerPercentage"
+  });
+  ageMetrics = JSON.parse(responseAge.body)
+
+  let responseCountry = await gapi.client.youtubeAnalytics.reports.query({
+      "ids": "channel==MINE",
+      "startDate": "2014-01-01",
+      "endDate": getDate(),
+      "dimensions": "country",
+      "metrics": "views"
+  });
+  countryMetrics = JSON.parse(responseCountry.body)
+  countryMetricsData = percentage(countryMetrics.rows);
+
+  let data = await gapi.client.youtube.channels.list({
+      part: 'snippet,statistics',
+      mine: true
+  })
+  let body = JSON.parse(data.body)
+  console.log({
+      name: 'pageUserData',
+      params: {
+          body: body,
+          countryMetrics: countryMetricsData,
+          ageMetrics: ageMetrics,
+          genderMetrics: genderMetrics
+      }
+  });
+}
+  // gapi.client.youtube.channels
+  //   .list({
+  //     part: 'snippet,contentDetails,statistics',
+  //     forUsername: channel
+  //   })
+  //   .then(response => {
+  //     console.log(response);
+  //     const channel = response.result.items[0];
+
+  //     const output = `
+  //       <ul class="collection">
+  //         <li class="collection-item">Title: ${channel.snippet.title}</li>
+  //         <li class="collection-item">ID: ${channel.id}</li>
+  //         <li class="collection-item">Subscribers: ${numberWithCommas(
+  //           channel.statistics.subscriberCount
+  //         )}</li>
+  //         <li class="collection-item">Views: ${numberWithCommas(
+  //           channel.statistics.viewCount
+  //         )}</li>
+  //         <li class="collection-item">Videos: ${numberWithCommas(
+  //           channel.statistics.videoCount
+  //         )}</li>
+  //       </ul>
+  //       <p>${channel.snippet.description}</p>
+  //       <hr>
+  //       <a class="btn grey darken-2" target="_blank" href="https://youtube.com/${
+  //         channel.snippet.customUrl
+  //       }">Visit Channel</a>
+  //     `;
+  //     showChannelData(output);
+
+  //     const playlistId = channel.contentDetails.relatedPlaylists.uploads;
+  //     requestVideoPlaylist(playlistId);
+  //   })
+  //   .catch(err => alert('No Channel By That Name'));
+
 
 // Add commas to number
 function numberWithCommas(x) {
